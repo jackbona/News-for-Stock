@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold News - 대한민국 대표 프리미엄 금융 & 증시 뉴스</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            100: '#FFF7D6',
+                            300: '#FFE082',
+                            400: '#FFD54F',
+                            500: '#FFC107',
+                            600: '#D4AF37', // Premium Gold
+                            700: '#AA820A',
+                        },
+                        darkBg: '#0B0F17',
+                        darkCard: '#151C28',
+                        darkHover: '#1E293B',
+                        stockUp: '#EF4444',   // Red for gain in KR market
+                        stockDown: '#3B82F6', // Blue for loss in KR market
+                    },
+                    keyframes: {
+                        ticker: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-50%)' }
+                        },
+                        pulseGreen: {
+                            '0%, 100%': { backgroundColor: 'transparent' },
+                            '50%': { backgroundColor: 'rgba(239, 68, 68, 0.2)' }
+                        },
+                        pulseBlue: {
+                            '0%, 100%': { backgroundColor: 'transparent' },
+                            '50%': { backgroundColor: 'rgba(59, 130, 246, 0.2)' }
+                        }
+                    },
+                    animation: {
+                        ticker: 'ticker 35s linear infinite',
+                        pulseUp: 'pulseGreen 1s ease-in-out',
+                        pulseDown: 'pulseBlue 1s ease-in-out'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0B0F17;
+            color: #E2E8F0;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B0F17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #D4AF37;
+        }
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #FFF7D6 0%, #D4AF37 50%, #AA820A 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gold-border-glow {
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.15);
+        }
+        .ticker-pause:hover {
+            animation-play-state: paused;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-10">
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- MAIN HEADER -->
+    <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 gap-4">
+                
+                <!-- Logo -->
+                <div class="flex items-center gap-3 cursor-pointer" onclick="resetFilter()">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 via-gold-600 to-amber-700 flex items-center justify-center shadow-lg shadow-gold-600/20">
+                        <i class="fa-solid fa-coins text-slate-950 text-xl font-black"></i>
+                    </div>
+                    <div>
+                        <span class="text-2xl font-black tracking-wider gold-gradient-text">GOLD NEWS</span>
+                        <span class="hidden sm:inline-block text-[10px] bg-gold-600/20 text-gold-400 font-bold px-1.5 py-0.5 rounded ml-1 border border-gold-600/30">PRO</span>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="flex-1 max-w-xl mx-2 sm:mx-6">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                        </div>
+                        <input type="text" id="search-input" 
+                            class="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700/80 rounded-full text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all"
+                            placeholder="상장사명 또는 종목코드 검색 (예: 삼성전자, 005930, SK하이닉스)">
+                        <button id="clear-search" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Utility Icons -->
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleAutoRefresh()" id="refresh-btn" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-gold-400 hover:border-gold-600/50 transition-all flex items-center gap-1.5 text-xs font-medium" title="실시간 시세 자동갱신 토글">
+                        <i id="refresh-icon" class="fa-solid fa-rotate text-gold-500 animate-spin"></i>
+                        <span class="hidden md:inline">LIVE</span>
+                    </button>
+                    <button onclick="showBookmarksModal()" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-gold-400 hover:border-gold-600/50 transition-all relative">
+                        <i class="fa-solid fa-bookmark text-sm"></i>
+                        <span id="bookmark-badge" class="hidden absolute -top-1 -right-1 bg-gold-500 text-slate-950 font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">0</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Category Navigation Bar -->
+            <nav class="flex items-center space-x-1 overflow-x-auto py-2 scrollbar-none border-t border-slate-800/50 text-xs font-medium">
+                <button onclick="filterCategory('ALL')" class="cat-btn active-cat px-3 py-1.5 rounded-lg whitespace-nowrap transition-all bg-gold-600 text-slate-950 font-bold" data-cat="ALL">전체 헤드라인</button>
+                <button onclick="filterCategory('IT/반도체')" class="cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all" data-cat="IT/반도체">⚡ IT/반도체</button>
+                <button onclick="filterCategory('바이오')" class="cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all" data-cat="바이오">🧬 바이오/제약</button>
+                <button onclick="filterCategory('배터리/2차전지')" class="cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all" data-cat="배터리/2차전지">🔋 배터리/2차전지</button>
+                <button onclick="filterCategory('자동차/모빌리티')" class="cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all" data-cat="자동차/모빌리티">🚗 자동차/모빌리티</button>
+                <button onclick="filterCategory('금융/증시')" class="cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all" data-cat="금융/증시">📈 금융/거시경제</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- LIVE MARKET CARDS DASHBOARD -->
+    <section class="bg-slate-900/60 border-b border-slate-800 py-3">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2.5" id="market-dashboard">
+                <!-- Market Index Cards render here via JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+        <!-- DYNAMIC SEARCH/SELECTED STOCK BANNER CARD (Shown when user searches stock) -->
+        <div id="stock-detail-card" class="hidden mb-6 p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-gold-600/40 gold-border-glow transition-all">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span id="target-stock-code" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-gold-400 font-mono font-bold">005930</span>
+                        <h2 id="target-stock-name" class="text-2xl font-extrabold text-white">삼성전자</h2>
+                        <span id="target-stock-market" class="text-xs text-slate-400">KOSPI</span>
+                    </div>
+                    <div class="flex items-baseline gap-3 mt-2">
+                        <span id="target-stock-price" class="text-3xl font-black text-slate-100">78,500</span>
+                        <span id="target-stock-change" class="text-sm font-bold text-stockUp flex items-center gap-1">
+                            <i class="fa-solid fa-caret-up"></i> ▲ 1,800 (+2.35%)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Mini Stat Items -->
+                <div class="grid grid-cols-3 gap-4 text-xs bg-slate-950/60 p-3 rounded-xl border border-slate-800 w-full md:w-auto">
+                    <div>
+                        <div class="text-slate-400">당일 고가</div>
+                        <div id="target-high" class="font-bold text-slate-200 mt-0.5">79,100</div>
+                    </div>
+                    <div>
+                        <div class="text-slate-400">당일 저가</div>
+                        <div id="target-low" class="font-bold text-slate-200 mt-0.5">77,200</div>
+                    </div>
+                    <div>
+                        <div class="text-slate-400">거래량(주)</div>
+                        <div id="target-vol" class="font-bold text-slate-200 mt-0.5">14,230,512</div>
+                    </div>
+                </div>
+
+                <button onclick="clearSearch()" class="text-xs text-slate-400 hover:text-gold-400 flex items-center gap-1">
+                    <i class="fa-solid fa-xmark"></i> 필터 해제
+                </button>
+            </div>
+        </div>
+
+        <!-- SENTIMENT & TYPE FILTER BUTTONS -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/80">
+            <div class="flex items-center gap-1.5 overflow-x-auto text-xs font-medium">
+                <span class="text-slate-400 mr-1 flex items-center gap-1"><i class="fa-solid fa-filter text-gold-500"></i> 뉴스 속성:</span>
+                <button onclick="filterSentiment('ALL')" class="sent-btn active-sent px-2.5 py-1 rounded-md bg-slate-800 text-gold-400 font-bold border border-slate-700" data-sent="ALL">전체 기사</button>
+                <button onclick="filterSentiment('BULL')" class="sent-btn px-2.5 py-1 rounded-md text-slate-300 hover:bg-slate-800 transition-all" data-sent="BULL">🔥 호재 뉴스</button>
+                <button onclick="filterSentiment('BEAR')" class="sent-btn px-2.5 py-1 rounded-md text-slate-300 hover:bg-slate-800 transition-all" data-sent="BEAR">📉 악재/경고</button>
+                <button onclick="filterSentiment('NOTICE')" class="sent-btn px-2.5 py-1 rounded-md text-slate-300 hover:bg-slate-800 transition-all" data-sent="NOTICE">📢 주요 공시</button>
+            </div>
+
+            <div class="text-xs text-slate-400">
+                총 <span id="news-count" class="font-bold text-gold-400">0</span>개의 기사
+            </div>
+        </div>
+
+        <!-- MAIN LAYOUT GRID (News Grid + Sidebar) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- NEWS FEED MAIN AREA (8 Cols) -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- FEATURED TOP NEWS HERO (Only shown when not strictly filtered) -->
+                <div id="featured-hero" class="relative group rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-xl hover:border-gold-600/40 transition-all">
+                    <!-- Dynamic Featured Article injected here -->
+                </div>
+
+                <!-- MAIN NEWS FEED CARDS LIST -->
+                <div id="news-list-container" class="space-y-4">
+                    <!-- News Item Cards Injected via JS -->
+                </div>
+
+                <!-- EMPTY STATE -->
+                <div id="empty-state" class="hidden py-16 text-center bg-slate-900/30 rounded-2xl border border-slate-800">
+                    <i class="fa-solid fa-newspaper text-4xl text-slate-600 mb-3"></i>
+                    <h3 class="text-base font-bold text-slate-300">검색된 관련 뉴스가 없습니다</h3>
+                    <p class="text-xs text-slate-500 mt-1">다른 검색어나 카테고리 필터를 선택해 보세요.</p>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDEBAR (4 Cols) -->
+            <div class="lg:col-span-4 space-y-6">
+
+                <!-- POPULAR SEARCHED STOCKS TREND -->
+                <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-md">
+                    <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-fire text-gold-500"></i> 실시간 주가 변동 Top
+                        </h3>
+                        <span class="text-[10px] text-slate-400">10초 자동갱신</span>
+                    </div>
+
+                    <div id="top-movers-list" class="space-y-2">
+                        <!-- Top Movers injected here -->
+                    </div>
+                </div>
+
+                <!-- MARKET SENTIMENT ANALYTICS SUMMARY -->
+                <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-md">
+                    <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2 border-b border-slate-800 pb-2">
+                        <i class="fa-solid fa-chart-pie text-gold-500"></i> 오늘 시장 뉴스 감성 지수
+                    </h3>
+
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-stockUp font-bold">호재 (긍정) 68%</span>
+                        <span class="text-xs text-stockDown font-bold">악재 (부정) 32%</span>
+                    </div>
+                    
+                    <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+                        <div class="bg-stockUp h-full" style="width: 68%;"></div>
+                        <div class="bg-stockDown h-full" style="width: 32%;"></div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
+                        💡 반도체 실적 개선 호조 및 외국인 매수세 유입으로 IT 업종 중심의 호재성 기사 비율이 우세합니다.
+                    </p>
+                </div>
+
+                <!-- KEY MARKET NOTICES / CALENDAR -->
+                <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-md">
+                    <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2 border-b border-slate-800 pb-2">
+                        <i class="fa-solid fa-calendar-check text-gold-500"></i> 오늘 주요 증시 일정
+                    </h3>
+
+                    <ul class="space-y-2.5 text-xs">
+                        <li class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 rounded bg-gold-600/20 text-gold-400 font-bold text-[10px]">공시</span>
+                            <span class="text-slate-300">삼성전자 Q3 잠정 실적 발표 설명회</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold text-[10px]">지표</span>
+                            <span class="text-slate-300">미국 연준(Fed) 금리 결정 FOMC 의사록 공개</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-bold text-[10px]">상장</span>
+                            <span class="text-slate-300">신규 2차전지 소재기업 코스닥 신규 상장</span>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- STICKY BOTTOM TICKER BAR -->
+    <div class="fixed bottom-0 left-0 right-0 bg-slate-950/95 border-t border-slate-800 py-1.5 z-40 overflow-hidden backdrop-blur-md">
+        <div class="flex whitespace-nowrap ticker-pause cursor-pointer">
+            <div id="bottom-ticker-content" class="inline-flex items-center space-x-8 animate-ticker text-xs font-mono font-medium">
+                <!-- Ticker items dynamically loaded -->
+            </div>
+        </div>
+    </div>
+
+    <!-- STOCK DETAIL POPUP MODAL -->
+    <div id="stock-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-gold-600/50 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative gold-border-glow">
+            <button onclick="closeStockModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-2">
+                <span id="modal-code" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-gold-400 font-mono font-bold">005930</span>
+                <h3 id="modal-name" class="text-2xl font-black text-white">삼성전자</h3>
+                <span id="modal-market" class="text-xs text-slate-400">KOSPI</span>
+            </div>
+
+            <div class="flex items-baseline gap-3 mb-4">
+                <span id="modal-price" class="text-3xl font-extrabold text-white">78,500</span>
+                <span id="modal-change" class="text-sm font-bold text-stockUp flex items-center gap-1">
+                    ▲ 1,800 (+2.35%)
+                </span>
+            </div>
+
+            <!-- Chart Canvas -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4 h-48 relative">
+                <canvas id="stockMiniChart"></canvas>
+            </div>
+
+            <!-- Quick Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-5">
+                <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
+                    <span class="text-slate-400 block mb-0.5">시가총액</span>
+                    <span id="modal-cap" class="font-bold text-slate-200">468.6조원</span>
+                </div>
+                <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
+                    <span class="text-slate-400 block mb-0.5">52주 최고</span>
+                    <span id="modal-high52" class="font-bold text-slate-200">88,800</span>
+                </div>
+                <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
+                    <span class="text-slate-400 block mb-0.5">52주 최저</span>
+                    <span id="modal-low52" class="font-bold text-slate-200">65,400</span>
+                </div>
+                <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
+                    <span class="text-slate-400 block mb-0.5">PER / PBR</span>
+                    <span id="modal-per" class="font-bold text-slate-200">14.2배 / 1.3배</span>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-slate-800">
+                <button onclick="searchAndFilterStock(currentModalStockName)" class="w-full py-2.5 bg-gradient-to-r from-gold-600 to-amber-600 hover:from-gold-500 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs transition-all shadow-md">
+                    <i class="fa-solid fa-newspaper mr-1"></i> 이 종목 관련 뉴스만 모아보기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOOKMARKS MODAL -->
+    <div id="bookmarks-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 shadow-2xl relative max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="text-base font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-bookmark text-gold-500"></i> 북마크한 기사 목록
+                </h3>
+                <button onclick="closeBookmarksModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="bookmarks-list" class="flex-1 overflow-y-auto my-4 space-y-3 pr-1">
+                <!-- Bookmarked news render here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- 1. MOCK DATA & APP STATE ---
+
+        // Real-time Indices & Stocks
+        let marketData = [
+            { id: 'kospi', name: '코스피', code: 'KOSPI', price: 2684.20, change: 14.50, percent: 0.54, type: 'index' },
+            { id: 'kosdaq', name: '코스닥', code: 'KOSDAQ', price: 868.35, change: -3.80, percent: -0.44, type: 'index' },
+            { id: 'usdkrw', name: '원/달러', code: 'USD/KRW', price: 1342.50, change: -4.20, percent: -0.31, type: 'index' },
+            { id: '005930', name: '삼성전자', code: '005930', price: 78500, change: 1800, percent: 2.35, market: 'KOSPI', high: 79100, low: 77200, vol: '14,230,512', cap: '468.6조', h52: '88,800', l52: '65,400', per: '14.2' },
+            { id: '000660', name: 'SK하이닉스', code: '000660', price: 189500, change: 5200, percent: 2.82, market: 'KOSPI', high: 191000, low: 184000, vol: '4,120,800', cap: '137.9조', h52: '240,000', l52: '110,000', per: '11.5' },
+            { id: '373220', name: 'LG에너지솔루션', code: '373220', price: 382000, change: -4500, percent: -1.16, market: 'KOSPI', high: 388500, low: 380000, vol: '280,120', cap: '89.3조', h52: '490,000', l52: '320,000', per: '45.1' },
+            { id: '005380', name: '현대차', code: '005380', price: 245000, change: 3500, percent: 1.45, market: 'KOSPI', high: 248000, low: 241000, vol: '1,050,400', cap: '51.8조', h52: '298,000', l52: '180,000', per: '5.8' },
+            { id: '068270', name: '셀트리온', code: '068270', price: 198200, change: -1200, percent: -0.60, market: 'KOSPI', high: 201000, low: 196500, vol: '650,300', cap: '43.2조', h52: '220,000', l52: '140,000', per: '38.2' },
+            { id: '035420', name: 'NAVER', code: '035420', price: 172500, change: 2100, percent: 1.23, market: 'KOSPI', high: 174000, low: 170000, vol: '890,200', cap: '28.3조', h52: '230,000', l52: '155,000', per: '22.4' }
+        ];
+
+        // Comprehensive Mock Financial News Array
+        const initialNewsData = [
+            {
+                id: 1,
+                title: "삼성전자, 차세대 CXL 메모리 대량 양산 착수… 'AI 반도체 시장 주도권 잡는다'",
+                summary: "삼성전자가 CXL(컴퓨트 익스프레스 링크) 기반 메모리 솔루션 양산 체제를 구축하고 글로벌 빅테크 기업 공급에 진전. AI 서버 시장 확대에 따른 고성능 메모리 수요 대응 호조.",
+                source: "한국경제",
+                time: "10분 전",
+                category: "IT/반도체",
+                sentiment: "BULL", // BULL, BEAR, NOTICE
+                stockCode: "005930",
+                stockName: "삼성전자",
+                stockChangeStr: "▲ 2.35%",
+                stockUp: true,
+                image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
+                featured: true,
+                relatedCount: 5,
+                subNews: [
+                    "외국인, 삼성전자 5거래일 연속 순매수세 강화",
+                    "증권가 '삼성전자 CXL 기술 선점으로 실적 개선 본격화'"
+                ]
+            },
+            {
+                id: 2,
+                title: "SK하이닉스, HBM3E 공급 확대로 3분기 최고 실적 경신 전망",
+                summary: "엔비디아 향 HBM3E 8단 및 12단 제품 공급 순항. 고부가가치 메모리 비중 확대로 영업이익률 30% 돌파 가시화되며 신기록 기대감 형성.",
+                source: "매일경제",
+                time: "25분 전",
+                category: "IT/반도체",
+                sentiment: "BULL",
+                stockCode: "000660",
+                stockName: "SK하이닉스",
+                stockChangeStr: "▲ 2.82%",
+                stockUp: true,
+                image: "https://images.unsplash.com/photo-1591488320449-011701bb6704?w=600&auto=format&fit=crop&q=80",
+                featured: false,
+                relatedCount: 3,
+                subNews: [
+                    "SK하이닉스, 용인 반도체 클러스터 첫 번째 페브 기공식 확정"
+                ]
+            },
+            {
+                id: 3,
+                title: "LG에너지솔루션, 미국 IRA 보조금 축소 우려에 약세… 2차전지 전반 조정",
+                summary: "미국 정치권 정책 변화 우려 및 전방 EV 수요 둔화 여파로 배터리 셀업체 주가 약세. 다만 기업 측은 LFP 배터리 및 ESS용 공급 계약으로 대응 방침.",
+                source: "연합연합인포맥스",
+                time: "42분 전",
+                category: "배터리/2차전지",
+                sentiment: "BEAR",
+                stockCode: "373220",
+                stockName: "LG에너지솔루션",
+                stockChangeStr: "▼ 1.16%",
+                stockUp: false,
+                image: "https://images.unsplash.com/photo-1558441719-6772a5a74070?w=600&auto=format&fit=crop&q=80",
+                featured: false,
+                relatedCount: 4,
+                subNews: []
+            },
+            {
+                id: 4,
+                title: "[공시] 현대차, 인도법인 현지 증시 상장 절차 최종 승인 획득",
+                summary: "현대자동차 인도법인(HMIL)의 인도 증권거래소 신규 상장 공모 절차가 승인됨. 구주 매출을 통해 수조 원 규모의 투자 재원 확보 전망.",
+                source: "서울경제",
+                time: "1시간 전",
+                category: "자동차/모빌리티",
+                sentiment: "NOTICE",
+                stockCode: "005380",
+                stockName: "현대차",
+                stockChangeStr: "▲ 1.45%",
+                stockUp: true,
+                image: "https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=600&auto=format&fit=crop&q=80",
+                featured: false,
+                relatedCount: 2,
+                subNews: []
+            },
+            {
+                id: 5,
+                title: "셀트리온, 미국 FDA 신약 승인 신청 접수 완료… 바이오시밀러 라인업 강화",
+                summary: "자가면역질환 치료제 신규 바이오시밀러의 미국 허가 제출 완료. 글로벌 시장 점유율 확대를 위한 유럽 및 북미 유통망 직판 체제 구축 본격화.",
+                source: "머니투데이",
+                time: "1시간 전",
+                category: "바이오",
+                sentiment: "BULL",
+                stockCode: "068270",
+                stockName: "셀트리온",
+                stockChangeStr: "▼ 0.60%",
+                stockUp: false,
+                image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=600&auto=format&fit=crop&q=80",
+                featured: false,
+                relatedCount: 1,
+                subNews: []
+            },
+            {
+                id: 6,
+                title: "NAVER, 생성형 AI 서비스 '클로바X' B2B 매출 전년比 200% 급증",
+                summary: "네이버의 기업용 AI 솔루션 도입 인프라 확대로 IT 솔루션 부문 매출 비중 증가. 핀테크 및 커머스 수익성 개선 동반하며 호실적 이끌어.",
+                source: "이데일리",
+                time: "2시간 전",
+                category: "IT/반도체",
+                sentiment: "BULL",
+                stockCode: "035420",
+                stockName: "NAVER",
+                stockChangeStr: "▲ 1.23%",
+                stockUp: true,
+                image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80",
+                featured: false,
+                relatedCount: 3,
+                subNews: []
+            }
+        ];
+
+        // State Management
+        let currentCategory = 'ALL';
+        let currentSentiment = 'ALL';
+        let searchQuery = '';
+        let autoRefreshActive = true;
+        let refreshInterval = null;
+        let bookmarkedIds = new Set();
+        let modalChartInstance = null;
+        let currentModalStockName = '';
+
+        // --- 2. INITIALIZATION & RENDER FUNCTIONS ---
+
+        window.onload = function() {
+            renderMarketDashboard();
+            renderBottomTicker();
+            renderTopMovers();
+            renderNewsFeed();
+            startAutoRefresh();
+
+            // Search input event listeners
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.trim();
+                const clearBtn = document.getElementById('clear-search');
+                if (searchQuery.length > 0) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+                renderNewsFeed();
+            });
+        };
+
+        // Render Header & Top Market Price Cards
+        function renderMarketDashboard() {
+            const container = document.getElementById('market-dashboard');
+            container.innerHTML = marketData.slice(0, 6).map(item => {
+                const isUp = item.change >= 0;
+                const changeClass = isUp ? 'text-stockUp' : 'text-stockDown';
+                const sign = isUp ? '▲' : '▼';
+
+                return `
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 hover:border-slate-700 transition-all cursor-pointer" onclick="openStockModalByName('${item.name}')">
+                        <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                            <span class="font-bold text-slate-300 truncate">${item.name}</span>
+                            <span class="text-[10px] font-mono">${item.code}</span>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-sm font-black text-slate-100 font-mono">${item.price.toLocaleString()}</span>
+                            <span class="text-xs font-bold ${changeClass} font-mono">
+                                ${sign} ${Math.abs(item.percent)}%
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Scrolling Bottom Ticker
+        function renderBottomTicker() {
+            const tickerContainer = document.getElementById('bottom-ticker-content');
+            const items = [...marketData, ...marketData]; // Duplicate for seamless infinite loop
+            
+            tickerContainer.innerHTML = items.map(item => {
+                const isUp = item.change >= 0;
+                const color = isUp ? 'text-stockUp' : 'text-stockDown';
+                const sign = isUp ? '▲' : '▼';
+                return `
+                    <span class="inline-flex items-center gap-2 hover:text-gold-400 transition-colors" onclick="openStockModalByName('${item.name}')">
+                        <span class="font-bold text-slate-300">${item.name}</span>
+                        <span class="text-slate-100 font-mono">${item.price.toLocaleString()}</span>
+                        <span class="${color} font-bold">${sign} ${Math.abs(item.change).toLocaleString()} (${item.percent}%)</span>
+                        <span class="text-slate-700">|</span>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        // Render Top Movers Widget
+        function renderTopMovers() {
+            const container = document.getElementById('top-movers-list');
+            const stocksOnly = marketData.filter(d => d.type !== 'index');
+            
+            // Sort by absolute percentage change
+            stocksOnly.sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent));
+
+            container.innerHTML = stocksOnly.slice(0, 5).map((stock, idx) => {
+                const isUp = stock.percent >= 0;
+                const changeColor = isUp ? 'text-stockUp' : 'text-stockDown';
+                const sign = isUp ? '▲' : '▼';
+
+                return `
+                    <div onclick="searchAndFilterStock('${stock.name}')" class="flex items-center justify-between p-2 rounded-lg bg-slate-950/40 hover:bg-slate-800/60 cursor-pointer transition-all border border-slate-800/40">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-xs font-black text-slate-500 w-4">${idx + 1}</span>
+                            <div>
+                                <div class="text-xs font-bold text-slate-200">${stock.name}</div>
+                                <div class="text-[10px] text-slate-400 font-mono">${stock.code}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-slate-100 font-mono">${stock.price.toLocaleString()}원</div>
+                            <div class="text-[11px] font-bold ${changeColor} font-mono">${sign} ${Math.abs(stock.percent)}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Filter & Render News Feed
+        function renderNewsFeed() {
+            const listContainer = document.getElementById('news-list-container');
+            const heroContainer = document.getElementById('featured-hero');
+            const emptyState = document.getElementById('empty-state');
+            const stockDetailCard = document.getElementById('stock-detail-card');
+
+            // Filtering logic
+            let filtered = initialNewsData.filter(item => {
+                const matchCat = (currentCategory === 'ALL' || item.category === currentCategory);
+                const matchSent = (currentSentiment === 'ALL' || item.sentiment === currentSentiment);
+                const query = searchQuery.toLowerCase();
+                const matchSearch = searchQuery === '' || 
+                    item.title.toLowerCase().includes(query) ||
+                    item.summary.toLowerCase().includes(query) ||
+                    item.stockName.toLowerCase().includes(query) ||
+                    item.stockCode.includes(query);
+
+                return matchCat && matchSent && matchSearch;
+            });
+
+            document.getElementById('news-count').innerText = filtered.length;
+
+            // Check if specific stock searched
+            const searchedStock = marketData.find(m => 
+                searchQuery !== '' && (m.name.toLowerCase() === searchQuery.toLowerCase() || m.code === searchQuery)
+            );
+
+            if (searchedStock) {
+                stockDetailCard.classList.remove('hidden');
+                document.getElementById('target-stock-name').innerText = searchedStock.name;
+                document.getElementById('target-stock-code').innerText = searchedStock.code;
+                document.getElementById('target-stock-price').innerText = searchedStock.price.toLocaleString() + '원';
+                document.getElementById('target-stock-market').innerText = searchedStock.market || '증시';
+                
+                const isUp = searchedStock.change >= 0;
+                const changeElem = document.getElementById('target-stock-change');
+                changeElem.className = `text-sm font-bold ${isUp ? 'text-stockUp' : 'text-stockDown'} flex items-center gap-1`;
+                changeElem.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(searchedStock.change).toLocaleString()} (${searchedStock.percent}%)`;
+
+                document.getElementById('target-high').innerText = (searchedStock.high || searchedStock.price * 1.02).toLocaleString();
+                document.getElementById('target-low').innerText = (searchedStock.low || searchedStock.price * 0.98).toLocaleString();
+                document.getElementById('target-vol').innerText = searchedStock.vol || '1,200,500';
+            } else {
+                stockDetailCard.classList.add('hidden');
+            }
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = '';
+                heroContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Render Hero (Top featured news) if no active search query
+            const featuredNews = filtered.find(n => n.featured) || filtered[0];
+            if (searchQuery === '' && currentCategory === 'ALL' && currentSentiment === 'ALL') {
+                heroContainer.classList.remove('hidden');
+                heroContainer.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-12 items-center">
+                        <div class="md:col-span-7 p-6 space-y-3 z-10">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gold-600/30 text-gold-400 border border-gold-600/40">주요 헤드라인</span>
+                                <span class="text-xs text-slate-400">${featuredNews.source} • ${featuredNews.time}</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-extrabold text-white hover:text-gold-300 transition-colors cursor-pointer" onclick="openStockModalByName('${featuredNews.stockName}')">
+                                ${featuredNews.title}
+                            </h1>
+                            <p class="text-xs sm:text-sm text-slate-300 line-clamp-2 leading-relaxed">
+                                ${featuredNews.summary}
+                            </p>
+                            <div class="flex items-center justify-between pt-2">
+                                <button onclick="openStockModalByName('${featuredNews.stockName}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-200 hover:border-gold-500 transition-all">
+                                    <span>${featuredNews.stockName}</span>
+                                    <span class="text-[10px] font-mono text-slate-400">(${featuredNews.stockCode})</span>
+                                    <span class="font-bold ${featuredNews.stockUp ? 'text-stockUp' : 'text-stockDown'} ml-1">${featuredNews.stockChangeStr}</span>
+                                </button>
+                                <button onclick="toggleBookmark(${featuredNews.id})" class="text-slate-400 hover:text-gold-400 transition-colors p-2">
+                                    <i class="${bookmarkedIds.has(featuredNews.id) ? 'fa-solid text-gold-400' : 'fa-regular'} fa-bookmark text-base"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="md:col-span-5 h-48 md:h-full relative overflow-hidden">
+                            <img src="${featuredNews.image}" alt="HeadNews" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-slate-900 via-slate-900/40 to-transparent"></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                heroContainer.classList.add('hidden');
+            }
+
+            // Render Remaining News Cards List
+            const displayNewsList = (searchQuery === '' && currentCategory === 'ALL' && currentSentiment === 'ALL') 
+                ? filtered.filter(n => n.id !== featuredNews.id) 
+                : filtered;
+
+            listContainer.innerHTML = displayNewsList.map(news => {
+                const isBookmarked = bookmarkedIds.has(news.id);
+                
+                // Sentiment Badge
+                let sentBadge = '';
+                if(news.sentiment === 'BULL') {
+                    sentBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">🔥 호재</span>`;
+                } else if(news.sentiment === 'BEAR') {
+                    sentBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">📉 악재</span>`;
+                } else {
+                    sentBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📢 공시</span>`;
+                }
+
+                return `
+                    <article class="bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-800/80 hover:border-slate-700 transition-all shadow-md hover:shadow-lg">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <div class="flex-1 space-y-2">
+                                <div class="flex items-center justify-between text-xs text-slate-400">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-slate-300">${news.source}</span>
+                                        <span>•</span>
+                                        <span>${news.time}</span>
+                                        ${sentBadge}
+                                    </div>
+                                    <span class="text-[11px] text-slate-500 font-medium">${news.category}</span>
+                                </div>
+
+                                <h2 class="text-base font-bold text-slate-100 hover:text-gold-400 transition-colors cursor-pointer leading-snug" onclick="openStockModalByName('${news.stockName}')">
+                                    ${news.title}
+                                </h2>
+
+                                <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                                    ${news.summary}
+                                </p>
+
+                                <!-- Bottom Article Controls & Related Stock Tag -->
+                                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 mt-3">
+                                    <button onclick="openStockModalByName('${news.stockName}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 text-xs font-medium hover:border-gold-500/50 transition-all">
+                                        <i class="fa-solid fa-chart-line text-gold-500 text-[10px]"></i>
+                                        <span class="font-bold text-slate-200">${news.stockName}</span>
+                                        <span class="${news.stockUp ? 'text-stockUp' : 'text-stockDown'} font-bold font-mono text-[11px]">${news.stockChangeStr}</span>
+                                    </button>
+
+                                    <div class="flex items-center gap-3">
+                                        ${news.relatedCount ? `
+                                            <button onclick="toggleRelatedArticles(${news.id})" class="text-[11px] text-gold-400 hover:underline flex items-center gap-1 font-medium">
+                                                관련 기사 ${news.relatedCount}개 더보기 <i class="fa-solid fa-chevron-down text-[9px]"></i>
+                                            </button>
+                                        ` : ''}
+                                        <button onclick="shareNews('${news.title}')" class="text-slate-400 hover:text-slate-200 text-xs" title="기사 공유">
+                                            <i class="fa-solid fa-share-nodes"></i>
+                                        </button>
+                                        <button onclick="toggleBookmark(${news.id})" class="text-slate-400 hover:text-gold-400 text-xs" title="북마크">
+                                            <i class="${isBookmarked ? 'fa-solid text-gold-400' : 'fa-regular'} fa-bookmark"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Related Sub-articles (Accordion) -->
+                                <div id="sub-news-${news.id}" class="hidden pt-3 border-t border-slate-800/40 space-y-1.5">
+                                    ${news.subNews ? news.subNews.map(sub => `
+                                        <div class="text-xs text-slate-400 flex items-center gap-2 hover:text-slate-200 cursor-pointer pl-2 border-l-2 border-gold-600/40">
+                                            <i class="fa-solid fa-angle-right text-[10px] text-gold-500"></i>
+                                            <span>${sub}</span>
+                                        </div>
+                                    `).join('') : ''}
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail Image -->
+                            <div class="w-full sm:w-32 h-32 sm:h-28 rounded-xl overflow-hidden shrink-0 relative bg-slate-950 border border-slate-800">
+                                <img src="${news.image}" alt="thumbnail" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // --- 3. DYNAMIC REAL-TIME SIMULATION ---
+
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => {
+                if (!autoRefreshActive) return;
+
+                // Mutate prices slightly for dynamic live feeling
+                marketData.forEach(stock => {
+                    const deltaPercent = (Math.random() - 0.49) * 0.4; // Small shift
+                    const oldPrice = stock.price;
+                    stock.price = Math.round(stock.price * (1 + deltaPercent / 100));
+                    stock.change = Math.round(stock.change + (stock.price - oldPrice));
+                    stock.percent = parseFloat(((stock.change / (stock.price - stock.change)) * 100).toFixed(2));
+                });
+
+                renderMarketDashboard();
+                renderBottomTicker();
+                renderTopMovers();
+
+                // Small blink animation trigger
+                const icon = document.getElementById('refresh-icon');
+                if(icon) {
+                    icon.classList.add('animate-spin');
+                    setTimeout(() => icon.classList.remove('animate-spin'), 600);
+                }
+
+            }, 4000); // Every 4 seconds
+        }
+
+        function toggleAutoRefresh() {
+            autoRefreshActive = !autoRefreshActive;
+            const btn = document.getElementById('refresh-btn');
+            if (autoRefreshActive) {
+                btn.classList.add('border-gold-600/50');
+                showToast("실시간 시세 자동갱신 활성화됨", "info");
+            } else {
+                btn.classList.remove('border-gold-600/50');
+                showToast("실시간 자동갱신 일시정지", "warning");
+            }
+        }
+
+        // --- 4. MODALS & FILTER INTERACTIONS ---
+
+        function filterCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.className = "cat-btn active-cat px-3 py-1.5 rounded-lg whitespace-nowrap transition-all bg-gold-600 text-slate-950 font-bold";
+                } else {
+                    btn.className = "cat-btn px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all";
+                }
+            });
+            renderNewsFeed();
+        }
+
+        function filterSentiment(sent) {
+            currentSentiment = sent;
+            document.querySelectorAll('.sent-btn').forEach(btn => {
+                if (btn.dataset.sent === sent) {
+                    btn.className = "sent-btn active-sent px-2.5 py-1 rounded-md bg-slate-800 text-gold-400 font-bold border border-slate-700";
+                } else {
+                    btn.className = "sent-btn px-2.5 py-1 rounded-md text-slate-300 hover:bg-slate-800 transition-all";
+                }
+            });
+            renderNewsFeed();
+        }
+
+        function searchAndFilterStock(stockName) {
+            closeStockModal();
+            const input = document.getElementById('search-input');
+            input.value = stockName;
+            searchQuery = stockName;
+            document.getElementById('clear-search').classList.remove('hidden');
+            renderNewsFeed();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            input.value = '';
+            searchQuery = '';
+            document.getElementById('clear-search').classList.add('hidden');
+            renderNewsFeed();
+        }
+
+        function resetFilter() {
+            clearSearch();
+            filterCategory('ALL');
+            filterSentiment('ALL');
+        }
+
+        function toggleRelatedArticles(newsId) {
+            const elem = document.getElementById(`sub-news-${newsId}`);
+            if (elem) {
+                elem.classList.toggle('hidden');
+            }
+        }
+
+        // STOCK DETAIL POPUP & CHART
+        function openStockModalByName(name) {
+            const stock = marketData.find(s => s.name === name);
+            if (!stock) return;
+
+            currentModalStockName = stock.name;
+            document.getElementById('modal-name').innerText = stock.name;
+            document.getElementById('modal-code').innerText = stock.code || '000000';
+            document.getElementById('modal-market').innerText = stock.market || '증시';
+            document.getElementById('modal-price').innerText = stock.price.toLocaleString() + '원';
+            
+            const isUp = stock.change >= 0;
+            const changeElem = document.getElementById('modal-change');
+            changeElem.className = `text-sm font-bold ${isUp ? 'text-stockUp' : 'text-stockDown'} flex items-center gap-1`;
+            changeElem.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(stock.change).toLocaleString()} (${stock.percent}%)`;
+
+            document.getElementById('modal-cap').innerText = stock.cap || '50조원';
+            document.getElementById('modal-high52').innerText = stock.h52 || '90,000';
+            document.getElementById('modal-low52').innerText = stock.l52 || '60,000';
+            document.getElementById('modal-per').innerText = `${stock.per || '12.5'}배`;
+
+            document.getElementById('stock-modal').classList.remove('hidden');
+            document.getElementById('stock-modal').classList.add('flex');
+
+            renderStockChart(stock);
+        }
+
+        function closeStockModal() {
+            const modal = document.getElementById('stock-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function renderStockChart(stock) {
+            const ctx = document.getElementById('stockMiniChart').getContext('2d');
+            
+            if (modalChartInstance) {
+                modalChartInstance.destroy();
+            }
+
+            // Dummy Intra-day chart data generation
+            const base = stock.price;
+            const points = [
+                base * 0.985, base * 0.99, base * 0.988, base * 0.995, 
+                base * 1.002, base * 0.998, base * 1.01, base * 1.008, base
+            ];
+            const isUp = stock.change >= 0;
+            const color = isUp ? '#EF4444' : '#3B82F6';
+
+            modalChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '15:30', '현재'],
+                    datasets: [{
+                        label: '주가 추이',
+                        data: points,
+                        borderColor: color,
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        tension: 0.3,
+                        fill: true,
+                        backgroundColor: (context) => {
+                            const bgCtx = context.chart.ctx;
+                            const gradient = bgCtx.createLinearGradient(0, 0, 0, 180);
+                            gradient.addColorStop(0, isUp ? 'rgba(239, 68, 68, 0.25)' : 'rgba(59, 130, 246, 0.25)');
+                            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                            return gradient;
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#64748B', font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748B', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // BOOKMARK MANAGEMENT
+        function toggleBookmark(id) {
+            if (bookmarkedIds.has(id)) {
+                bookmarkedIds.delete(id);
+                showToast("북마크에서 삭제되었습니다.", "info");
+            } else {
+                bookmarkedIds.add(id);
+                showToast("관심 기사로 북마크 저장되었습니다.", "success");
+            }
+            
+            // Update badge count
+            const badge = document.getElementById('bookmark-badge');
+            badge.innerText = bookmarkedIds.size;
+            if (bookmarkedIds.size > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            renderNewsFeed();
+        }
+
+        function showBookmarksModal() {
+            const container = document.getElementById('bookmarks-list');
+            const modal = document.getElementById('bookmarks-modal');
+
+            if (bookmarkedIds.size === 0) {
+                container.innerHTML = `
+                    <div class="py-8 text-center text-slate-500 text-xs">
+                        <i class="fa-regular fa-bookmark text-2xl mb-2 block"></i>
+                        저장된 북마크 기사가 없습니다.
+                    </div>
+                `;
+            } else {
+                const bookmarkedArticles = initialNewsData.filter(n => bookmarkedIds.has(n.id));
+                container.innerHTML = bookmarkedArticles.map(n => `
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-start gap-3">
+                        <div>
+                            <span class="text-[10px] text-gold-400 font-bold">${n.stockName} (${n.stockCode})</span>
+                            <h4 class="text-xs font-bold text-slate-200 mt-0.5 hover:underline cursor-pointer" onclick="closeBookmarksModal(); openStockModalByName('${n.stockName}');">${n.title}</h4>
+                            <span class="text-[10px] text-slate-500 block mt-1">${n.source} • ${n.time}</span>
+                        </div>
+                        <button onclick="toggleBookmark(${n.id}); showBookmarksModal();" class="text-slate-500 hover:text-red-400 text-xs">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeBookmarksModal() {
+            const modal = document.getElementById('bookmarks-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function shareNews(title) {
+            // Native clipboard fallback
+            const dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = `[Gold News] ${title} - https://goldnews.financial/share`;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast("기사 링크가 클립보드에 복사되었습니다.", "success");
+        }
+
+        // TOAST NOTIFICATION HELPER
+        function showToast(message, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgBg = 'bg-slate-900 border-gold-600/60 text-gold-400';
+            let icon = 'fa-circle-check';
+
+            if (type === 'info') {
+                bgBg = 'bg-slate-900 border-slate-700 text-slate-200';
+                icon = 'fa-circle-info';
+            } else if(type === 'warning') {
+                bgBg = 'bg-slate-900 border-amber-500 text-amber-400';
+                icon = 'fa-triangle-exclamation';
+            }
+
+            toast.className = `px-4 py-2.5 rounded-xl border ${bgBg} shadow-xl text-xs font-bold flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Animate out
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
